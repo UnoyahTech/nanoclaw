@@ -88,6 +88,12 @@ export interface Channel {
   name: string;
   connect(): Promise<void>;
   sendMessage(jid: string, text: string): Promise<void>;
+  // Optional: send message with file attachments. Channels that don't support files ignore this.
+  sendMessageWithAttachments?(
+    jid: string,
+    text: string,
+    files: { name: string; content: string }[],
+  ): Promise<void>;
   isConnected(): boolean;
   ownsJid(jid: string): boolean;
   disconnect(): Promise<void>;
