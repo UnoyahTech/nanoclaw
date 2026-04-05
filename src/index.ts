@@ -49,7 +49,12 @@ import {
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
-import { findChannel, formatMessages, formatOutbound } from './router.js';
+import {
+  findChannel,
+  formatMessages,
+  formatOutbound,
+  routeDelivery,
+} from './router.js';
 import {
   restoreRemoteControl,
   startRemoteControl,
@@ -289,11 +294,20 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         typeof result.result === 'string'
           ? result.result
           : JSON.stringify(result.result);
-      // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
+      // Strip <internal> tags (kept here for streaming — internal tags may span chunks)
       const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
       logger.info({ group: group.name }, `Agent output: ${raw.length} chars`);
       if (text) {
-        await channel.sendMessage(chatJid, text);
+        try {
+          await routeDelivery(channels, chatJid, text, group.name);
+        } catch (deliveryErr) {
+          // Safety fallback: if delivery pipeline fails, send raw text
+          logger.error(
+            { group: group.name, err: deliveryErr },
+            'Delivery pipeline error, falling back to raw send',
+          );
+          await channel.sendMessage(chatJid, text);
+        }
         outputSentToUser = true;
       }
       // Only reset idle timer on actual results, not session-update markers (result: null)

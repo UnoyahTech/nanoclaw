@@ -1,8 +1,16 @@
-import { Client, Events, GatewayIntentBits, Message, TextChannel } from 'discord.js';
+import {
+  AttachmentBuilder,
+  Client,
+  Events,
+  GatewayIntentBits,
+  Message,
+  TextChannel,
+} from 'discord.js';
 
 import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
 import { readEnvFile } from '../env.js';
 import { logger } from '../logger.js';
+import { smartSplit } from '../smart-split.js';
 import { registerChannel, ChannelOpts } from './registry.js';
 import {
   Channel,
@@ -88,18 +96,20 @@ export class DiscordChannel implements Channel {
 
       // Handle attachments — store placeholders so the agent knows something was sent
       if (message.attachments.size > 0) {
-        const attachmentDescriptions = [...message.attachments.values()].map((att) => {
-          const contentType = att.contentType || '';
-          if (contentType.startsWith('image/')) {
-            return `[Image: ${att.name || 'image'}]`;
-          } else if (contentType.startsWith('video/')) {
-            return `[Video: ${att.name || 'video'}]`;
-          } else if (contentType.startsWith('audio/')) {
-            return `[Audio: ${att.name || 'audio'}]`;
-          } else {
-            return `[File: ${att.name || 'file'}]`;
-          }
-        });
+        const attachmentDescriptions = [...message.attachments.values()].map(
+          (att) => {
+            const contentType = att.contentType || '';
+            if (contentType.startsWith('image/')) {
+              return `[Image: ${att.name || 'image'}]`;
+            } else if (contentType.startsWith('video/')) {
+              return `[Video: ${att.name || 'video'}]`;
+            } else if (contentType.startsWith('audio/')) {
+              return `[Audio: ${att.name || 'audio'}]`;
+            } else {
+              return `[File: ${att.name || 'file'}]`;
+            }
+          },
+        );
         if (content) {
           content = `${content}\n${attachmentDescriptions.join('\n')}`;
         } else {
@@ -125,7 +135,13 @@ export class DiscordChannel implements Channel {
 
       // Store chat metadata for discovery
       const isGroup = message.guild !== null;
-      this.opts.onChatMetadata(chatJid, timestamp, chatName, 'discord', isGroup);
+      this.opts.onChatMetadata(
+        chatJid,
+        timestamp,
+        chatName,
+        'discord',
+        isGroup,
+      );
 
       // Only deliver full message for registered groups
       const group = this.opts.registeredGroups()[chatJid];
@@ -198,13 +214,65 @@ export class DiscordChannel implements Channel {
       if (text.length <= MAX_LENGTH) {
         await textChannel.send(text);
       } else {
-        for (let i = 0; i < text.length; i += MAX_LENGTH) {
-          await textChannel.send(text.slice(i, i + MAX_LENGTH));
+        const chunks = smartSplit(text, MAX_LENGTH);
+        for (const chunk of chunks) {
+          await textChannel.send(chunk);
         }
       }
       logger.info({ jid, length: text.length }, 'Discord message sent');
     } catch (err) {
       logger.error({ jid, err }, 'Failed to send Discord message');
+    }
+  }
+
+  async sendMessageWithAttachments(
+    jid: string,
+    text: string,
+    files: { name: string; content: string }[],
+  ): Promise<void> {
+    if (!this.client) {
+      logger.warn('Discord client not initialized');
+      return;
+    }
+
+    try {
+      const channelId = jid.replace(/^dc:/, '');
+      const channel = await this.client.channels.fetch(channelId);
+
+      if (!channel || !('send' in channel)) {
+        logger.warn({ jid }, 'Discord channel not found or not text-based');
+        return;
+      }
+
+      const textChannel = channel as TextChannel;
+
+      const attachments = files.map(
+        (f) =>
+          new AttachmentBuilder(Buffer.from(f.content, 'utf-8'), {
+            name: f.name,
+          }),
+      );
+
+      // Send text + attachments in one message
+      // If text is empty, just send files
+      if (text) {
+        // Text still has the 2000 char limit — truncate if needed (summary should be short)
+        const truncatedText =
+          text.length > 2000 ? text.slice(0, 1997) + '...' : text;
+        await textChannel.send({ content: truncatedText, files: attachments });
+      } else {
+        await textChannel.send({ files: attachments });
+      }
+
+      logger.info(
+        { jid, textLength: text.length, fileCount: files.length },
+        'Discord message with attachments sent',
+      );
+    } catch (err) {
+      logger.error(
+        { jid, err },
+        'Failed to send Discord message with attachments',
+      );
     }
   }
 
