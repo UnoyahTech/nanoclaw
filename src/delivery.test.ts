@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { resolveDelivery, DeliveryAction } from './delivery.js';
 
@@ -29,14 +29,17 @@ describe('resolveDelivery', () => {
     expect(result.type).toBe('attachment');
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0]).toContain('Full report attached below.');
-    expect(result.messages[0]).toContain('First paragraph with important info.');
+    expect(result.messages[0]).toContain(
+      'First paragraph with important info.',
+    );
     expect(result.attachment).not.toBeNull();
     expect(result.attachment!.filename).toMatch(/^nova-\d{4}-\d{2}-\d{2}\.md$/);
     expect(result.attachment!.content).toBe(text);
   });
 
   it('auto-summary skips heading lines for first paragraph', () => {
-    const text = '# Big Heading\n\n---\n\nActual first paragraph.\n\n' + 'a'.repeat(4500);
+    const text =
+      '# Big Heading\n\n---\n\nActual first paragraph.\n\n' + 'a'.repeat(4500);
     const result = resolveDelivery(text, 'scout');
     expect(result.messages[0]).toContain('Actual first paragraph.');
     expect(result.messages[0]).not.toContain('# Big Heading');
@@ -75,7 +78,9 @@ describe('resolveDelivery', () => {
   it('generates fallback filename from agent name and date', () => {
     const tagged = '<deliverable># Report</deliverable>';
     const result = resolveDelivery(tagged, 'scout');
-    expect(result.attachment!.filename).toMatch(/^scout-\d{4}-\d{2}-\d{2}\.md$/);
+    expect(result.attachment!.filename).toMatch(
+      /^scout-\d{4}-\d{2}-\d{2}\.md$/,
+    );
   });
 
   it('includes bare text alongside summary when both exist', () => {
@@ -88,7 +93,8 @@ describe('resolveDelivery', () => {
   });
 
   it('falls back to bare text on malformed tags', () => {
-    const malformed = '<summary>Unclosed summary with <deliverable>also unclosed';
+    const malformed =
+      '<summary>Unclosed summary with <deliverable>also unclosed';
     const result = resolveDelivery(malformed, 'nova');
     expect(result.type).toBe('inline');
     expect(result.messages[0]).toBe(malformed);

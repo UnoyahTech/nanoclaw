@@ -10,6 +10,7 @@ import {
 import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
 import { readEnvFile } from '../env.js';
 import { logger } from '../logger.js';
+import { smartSplit } from '../smart-split.js';
 import { registerChannel, ChannelOpts } from './registry.js';
 import {
   Channel,
@@ -213,8 +214,9 @@ export class DiscordChannel implements Channel {
       if (text.length <= MAX_LENGTH) {
         await textChannel.send(text);
       } else {
-        for (let i = 0; i < text.length; i += MAX_LENGTH) {
-          await textChannel.send(text.slice(i, i + MAX_LENGTH));
+        const chunks = smartSplit(text, MAX_LENGTH);
+        for (const chunk of chunks) {
+          await textChannel.send(chunk);
         }
       }
       logger.info({ jid, length: text.length }, 'Discord message sent');

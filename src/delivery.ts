@@ -25,7 +25,7 @@ function extractFirstParagraph(text: string): string {
     if (!trimmed) continue;
     if (/^#{1,6}\s/.test(trimmed)) continue;
     if (/^(?:---+|\*\*\*+)$/.test(trimmed)) continue;
-    return trimmed;
+    return trimmed.length > 500 ? trimmed.slice(0, 497) + '...' : trimmed;
   }
   // Fallback: first 500 chars
   return text.slice(0, 500).trim();
@@ -40,7 +40,9 @@ export function resolveDelivery(
   rawText: string,
   agentName: string,
 ): DeliveryAction {
-  const parsed = parseAgentOutput(rawText);
+  // Strip internal tags so delivery is self-contained (even if called outside index.ts)
+  const cleanText = rawText.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+  const parsed = parseAgentOutput(cleanText);
 
   // Case 1: Tagged output with deliverable
   if (parsed.deliverable) {
@@ -54,7 +56,9 @@ export function resolveDelivery(
     } else if (parsed.bareText) {
       // Deliverable without summary — auto-generate from deliverable content
       const autoSummary = extractFirstParagraph(parsed.deliverable.content);
-      messages.push(`${parsed.bareText}\n\nFull report attached below.\n${autoSummary}`);
+      messages.push(
+        `${parsed.bareText}\n\nFull report attached below.\n${autoSummary}`,
+      );
     } else {
       // Just deliverable, no summary, no bare text
       const autoSummary = extractFirstParagraph(parsed.deliverable.content);
@@ -84,8 +88,7 @@ export function resolveDelivery(
   }
 
   // Case 3: Bare text only — decide by length
-  // Use rawText for attachment content to preserve original formatting;
-  // use bareText for length checks and inline display (internal tags stripped).
+  // Internal tags already stripped above; bareText is the display text.
   const text = parsed.bareText;
 
   if (text.length <= DISCORD_MAX_LENGTH) {
@@ -97,13 +100,13 @@ export function resolveDelivery(
   }
 
   if (text.length > AUTO_ATTACH_THRESHOLD) {
-    const autoSummary = extractFirstParagraph(rawText);
+    const autoSummary = extractFirstParagraph(cleanText);
     return {
       type: 'attachment',
       messages: [`Full report attached below.\n${autoSummary}`],
       attachment: {
         filename: fallbackFilename(agentName),
-        content: rawText,
+        content: cleanText,
       },
     };
   }
