@@ -33,7 +33,9 @@ describe('routeDelivery', () => {
     await routeDelivery([ch], 'dc:123', tagged, 'scout');
 
     expect(ch.sendMessageWithAttachments).toHaveBeenCalledTimes(1);
-    const [jid, text, files] = (ch.sendMessageWithAttachments as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [jid, text, files] = (
+      ch.sendMessageWithAttachments as ReturnType<typeof vi.fn>
+    ).mock.calls[0];
     expect(jid).toBe('dc:123');
     expect(text).toContain('Found 3 issues.');
     expect(files).toHaveLength(1);

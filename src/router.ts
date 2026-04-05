@@ -76,12 +76,18 @@ export async function routeDelivery(
     await channel.sendMessageWithAttachments(
       jid,
       action.messages[lastIdx] || '',
-      [{ name: action.attachment.filename, content: action.attachment.content }],
+      [
+        {
+          name: action.attachment.filename,
+          content: action.attachment.content,
+        },
+      ],
     );
   } else if (action.attachment) {
     // Channel doesn't support attachments — fall back to smart-split the full content
     const { smartSplit } = await import('./smart-split.js');
-    const allText = action.messages.join('\n\n') + '\n\n' + action.attachment.content;
+    const allText =
+      action.messages.join('\n\n') + '\n\n' + action.attachment.content;
     const chunks = smartSplit(allText);
     for (const chunk of chunks) {
       await channel.sendMessage(jid, chunk);

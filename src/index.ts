@@ -49,7 +49,12 @@ import {
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
-import { findChannel, formatMessages, formatOutbound, routeDelivery } from './router.js';
+import {
+  findChannel,
+  formatMessages,
+  formatOutbound,
+  routeDelivery,
+} from './router.js';
 import {
   restoreRemoteControl,
   startRemoteControl,
@@ -297,7 +302,10 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           await routeDelivery(channels, chatJid, text, group.name);
         } catch (deliveryErr) {
           // Safety fallback: if delivery pipeline fails, send raw text
-          logger.error({ group: group.name, err: deliveryErr }, 'Delivery pipeline error, falling back to raw send');
+          logger.error(
+            { group: group.name, err: deliveryErr },
+            'Delivery pipeline error, falling back to raw send',
+          );
           await channel.sendMessage(chatJid, text);
         }
         outputSentToUser = true;

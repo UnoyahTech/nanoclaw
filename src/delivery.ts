@@ -41,7 +41,9 @@ export function resolveDelivery(
   agentName: string,
 ): DeliveryAction {
   // Strip internal tags so delivery is self-contained (even if called outside index.ts)
-  const cleanText = rawText.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+  const cleanText = rawText
+    .replace(/<internal>[\s\S]*?<\/internal>/g, '')
+    .trim();
   const parsed = parseAgentOutput(cleanText);
 
   // Case 1: Tagged output with deliverable
